@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lissajous Text Snake · Full Dynamic</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // --------------------------------------------------------------
+        //  FULLY DYNAMIC SNAKE — no external divs, no errors
+        // --------------------------------------------------------------
+        const canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+
+        const PHRASE = "Art Wave 白浪潮";
+        const phraseChars = PHRASE.split('');
+        const PHRASE_LEN = phraseChars.length;
+
+        const SNAKE_LEN = 275;
+        const STEP_T = 0.012;
+        const ANIM_SPEED = 0.0018;
+
+        let freqX = 1, freqY = 1;
+        let phaseX = 0, phaseY = 0;
+        let nextT = 0;
+        let globalCharIndex = 0;
+        let snake = [];  // { t, ch, color }
+
+        let width, height, radiusX, radiusY;
+
+        function updateRadii() {
+            radiusX = width / 2 - 70;
+            radiusY = height / 2 - 70;
+            if (radiusX < 90) radiusX = 90;
+            if (radiusY < 90) radiusY = 90;
+        }
+
+        function getPosAndAngle(tVal) {
+            let cx = width / 2, cy = height / 2;
+            let x = cx + radiusX * Math.cos(freqX * tVal + phaseX);
+            let y = cy + radiusY * Math.sin(freqY * tVal + phaseY);
+            let dx = -radiusX * freqX * Math.sin(freqX * tVal + phaseX);
+            let dy = radiusY * freqY * Math.cos(freqY * tVal + phaseY);
+            let angle = Math.atan2(dy, dx);
+            return { x, y, angle };
+        }
+
+        function getColorForGlobalIndex(idx) {
+            let phraseRep = Math.floor(idx / PHRASE_LEN);
+            return (phraseRep % 2 === 0) ? '#0f0' : '#fa0';
+        }
+
+        function growSnake() {
+            let ch = phraseChars[globalCharIndex % PHRASE_LEN];
+            let col = getColorForGlobalIndex(globalCharIndex);
+            snake.unshift({ t: nextT, ch, color: col });
+            if (snake.length > SNAKE_LEN) snake.pop();
+            globalCharIndex++;
+            nextT += STEP_T;
+            if (nextT > Math.PI * 20) nextT -= Math.PI * 20;
+        }
+
+        function drawSnake() {
+            for (let i = 0; i < snake.length; i++) {
+                let item = snake[i];
+                let { x, y, angle } = getPosAndAngle(item.t);
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+                ctx.font = "24px 'Courier New', monospace";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = item.color;
+                ctx.fillText(item.ch, 0, 0);
+                ctx.restore();
+            }
+        }
+
+        // mouse/touch control
+        function handleMouseMove(e) {
+            let rect = canvas.getBoundingClientRect();
+            let mx = (e.clientX - rect.left) / rect.width;
+            let my = (e.clientY - rect.top) / rect.height;
+            mx = Math.min(1, Math.max(0, mx));
+            my = Math.min(1, Math.max(0, my));
+            let newX = Math.floor(mx * 12) + 1;
+            let newY = Math.floor(my * 12) + 1;
+            if (newX !== freqX || newY !== freqY) {
+                freqX = newX;
+                freqY = newY;
+            }
+        }
+
+        function reset() {
+            freqX = 1; freqY = 1;
+            phaseX = 0; phaseY = 0;
+            nextT = 0;
+            globalCharIndex = 0;
+            snake = [];
+            for (let i = 0; i < 12; i++) growSnake();  // prime visible
+        }
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            updateRadii();
+        }
+
+        // animation
+        let animationFrame;
+        function animate() {
+            phaseX += ANIM_SPEED;
+            phaseY += ANIM_SPEED;
+            if (phaseX > Math.PI * 2) phaseX -= Math.PI * 2;
+            if (phaseY > Math.PI * 2) phaseY -= Math.PI * 2;
+
+            growSnake();
+
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+            drawSnake();
+
+            // optional: very minimal info drawn on canvas (remove if you want no text at all)
+            ctx.fillStyle = '#0f0';
+            ctx.font = "12px monospace";
+            ctx.textAlign = "left";
+            ctx.fillText(`${freqX}:${freqY} | len ${snake.length}`, 18, 30);
+
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        // events
+        window.addEventListener('resize', resizeCanvas);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            let rect = canvas.getBoundingClientRect();
+            let touch = e.touches[0];
+            handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
+        });
+        window.addEventListener('keydown', (e) => { if (e.key === 'r' || e.key === 'R') reset(); });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        resizeCanvas();
+        reset();
+        animate();
+    </script>
+</body>
+
+</html>
